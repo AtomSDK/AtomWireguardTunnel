@@ -9,11 +9,18 @@ import Foundation
 import NetworkExtension
 import os
 
+enum WireGuardExceptions: String {
+    case HandshakeDidnotCompleted = "Handshake did not complete after"
+}
+
+public var handshakeExceptionCount = 0
+
 open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     
     private lazy var adapter: WireGuardAdapter = {
         return WireGuardAdapter(with: self) { logLevel, message in
             wg_log(logLevel.osLogLevel, message: message)
+            self.handleExceptions(message);
         }
     }()
     
@@ -99,6 +106,25 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             // sufficient quantities of users.
             exit(0)
 #endif
+        }
+    }
+    
+    open func handleExceptions(_ message: String?){
+        
+        if let exceptionMessage = message {
+            switch exceptionMessage {
+            case _ where exceptionMessage.contains(WireGuardExceptions.HandshakeDidnotCompleted.rawValue):
+                handshakeExceptionCount = handshakeExceptionCount + 1
+                wg_log(.error, message: "Munib (\(handshakeExceptionCount) \(WireGuardExceptions.HandshakeDidnotCompleted.rawValue)")
+                if handshakeExceptionCount >= 3 {
+                    self.stopTunnel(with: NEProviderStopReason.noNetworkAvailable) {
+                        
+                    }
+                }
+                
+            default:
+                break
+            }
         }
     }
     
