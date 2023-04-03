@@ -17,7 +17,7 @@ let package = Package(
     dependencies: [
         .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
 //        .package(url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
-//            .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", from: "am/develop")
+//            .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", from: "1.0.15-26")
     ],
     targets: [
         .target(
