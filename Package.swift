@@ -1,4 +1,4 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.5
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -15,7 +15,7 @@ let package = Package(
             targets: ["AtomWireguardTunnel"]),
     ],
     dependencies: [
-            .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", from: "1.0.15-26")
+        .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
     ],
     targets: [
         .target(
