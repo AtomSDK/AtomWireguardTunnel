@@ -11,12 +11,24 @@ import os
 
 enum WireGuardExceptions: String {
     case HandshakeDidnotCompleted = "Handshake did not complete after"
+    case HandshakeCompleted = "Received handshake response"
+
 }
 
 public var handshakeExceptionCount = 0
 
 open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     
+    private var networkMonitor: NWPathMonitor?
+
+    deinit {
+        networkMonitor?.cancel()
+    }
+    
+    /// A system completion handler passed from startTunnel and saved for later use once the
+    /// connection is established.
+    private var startTunnelCompletionHandler: (() -> Void)?
+
     private lazy var adapter: WireGuardAdapter = {
         return WireGuardAdapter(with: self) { logLevel, message in
             wg_log(logLevel.osLogLevel, message: message)
@@ -45,14 +57,30 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             return;
         }
         
+        var handle: Int32 = -1
+        
+        networkMonitor = NWPathMonitor()
+            networkMonitor?.pathUpdateHandler = { path in
+                guard handle >= 0 else { return }
+                if path.status == .satisfied {
+                    wg_log(.debug, message: "Network change detected, re-establishing sockets and IPs: \(path.availableInterfaces)")
+                    }
+        }
+        
+        networkMonitor?.start(queue: DispatchQueue(label: "NetworkMonitor"))
+        
         // Start the tunnel
         adapter.start(tunnelConfiguration: tunnelConfiguration) { adapterError in
             guard let adapterError = adapterError else {
                 let interfaceName = self.adapter.interfaceName ?? "unknown"
                 
                 wg_log(.info, message: "Tunnel interface is \(interfaceName)")
-                
-                completionHandler(nil)
+            
+                self.startTunnelCompletionHandler =
+                { [weak self] in
+                    
+                    completionHandler(nil)
+                }
                 return
             }
             
@@ -90,10 +118,9 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     open override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         wg_log(.info, staticMessage: "Stopping tunnel")
         
+        startTunnelCompletionHandler = nil
+
         adapter.stop { error in
-            // BEGIN: TunnelKit
-//            self.persistentErrorNotifier?.removeLastErrorFile()
-            // END: TunnelKit
             
             if let error = error {
                 wg_log(.error, message: "Failed to stop WireGuard adapter: \(error.localizedDescription)")
@@ -109,19 +136,25 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
         }
     }
     
+
+    
     open func handleExceptions(_ message: String?){
         
         if let exceptionMessage = message {
             switch exceptionMessage {
             case _ where exceptionMessage.contains(WireGuardExceptions.HandshakeDidnotCompleted.rawValue):
                 handshakeExceptionCount = handshakeExceptionCount + 1
-                wg_log(.error, message: "Munib (\(handshakeExceptionCount) \(WireGuardExceptions.HandshakeDidnotCompleted.rawValue)")
+                wg_log(.error, message: "(\(handshakeExceptionCount) \(WireGuardExceptions.HandshakeDidnotCompleted.rawValue)")
                 if handshakeExceptionCount >= 3 {
                     self.stopTunnel(with: NEProviderStopReason.noNetworkAvailable) {
                         
                     }
                 }
-                
+            case _ where exceptionMessage.contains(WireGuardExceptions.HandshakeCompleted.rawValue):
+                wg_log(.info, message: "(\(WireGuardExceptions.HandshakeCompleted.rawValue)")
+                startTunnelCompletionHandler?()
+                startTunnelCompletionHandler = nil
+
             default:
                 break
             }
