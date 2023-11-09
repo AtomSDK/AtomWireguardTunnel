@@ -51,7 +51,7 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             fatalError("AppGroup not found in providerConfiguration")
         }
         
-        guard let tunnelConfiguration = try? TunnelConfiguration(fromWgQuickConfig: configs, called: "arsal-testing")
+        guard let tunnelConfiguration = try? TunnelConfiguration(fromWgQuickConfig: configs, called: "tunnel")
         else {
             wg_log(.info, message: WireGuardProviderError.savedProtocolConfigurationIsInvalid.rawValue)
             return;
