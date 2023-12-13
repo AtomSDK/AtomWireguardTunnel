@@ -146,9 +146,13 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                 handshakeExceptionCount = handshakeExceptionCount + 1
                 wg_log(.error, message: "(\(handshakeExceptionCount) \(WireGuardExceptions.HandshakeDidnotCompleted.rawValue)")
                 if handshakeExceptionCount >= 3 {
-                    self.stopTunnel(with: NEProviderStopReason.noNetworkAvailable) {
-                        
-                    }
+                    /**
+                     * Removed self.stopTunnel and used cancelTunnelWithError because the tunnel was not stopping.
+                     * Apple documentation says:
+                     * Do not use this method to stop the tunnel from the Packet Tunnel Provider. Use cancelTunnelWithError: instead.
+                     * https://developer.apple.com/documentation/networkextension/nepackettunnelprovider/1406192-stoptunnel
+                     */
+                    self.cancelTunnelWithError(WireGuardProviderError.handshakeFailure)
                 }
             case _ where exceptionMessage.contains(WireGuardExceptions.HandshakeCompleted.rawValue):
                 wg_log(.info, message: "(\(WireGuardExceptions.HandshakeCompleted.rawValue)")
