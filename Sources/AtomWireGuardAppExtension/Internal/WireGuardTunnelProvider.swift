@@ -147,12 +147,24 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                 wg_log(.error, message: "(\(handshakeExceptionCount) \(WireGuardExceptions.HandshakeDidnotCompleted.rawValue)")
                 if handshakeExceptionCount >= 3 {
                     /**
+                     * For iOS:
                      * Removed self.stopTunnel and used cancelTunnelWithError because the tunnel was not stopping.
                      * Apple documentation says:
                      * Do not use this method to stop the tunnel from the Packet Tunnel Provider. Use cancelTunnelWithError: instead.
                      * https://developer.apple.com/documentation/networkextension/nepackettunnelprovider/1406192-stoptunnel
+                     * ***************************************
+                     * For macOS:
+                     * In macOS case after calling cancelTunnelWithError the handshake packets were being sent, this might be a bug in Apple for macOS.
+                     * Remove the macOS case below if the bug resolves in future releases.
+                     * Ideally cancelTunnelWithError should work for both iOS and macOS.
                      */
+#if os(macOS)
+                    self.stopTunnel(with: NEProviderStopReason.connectionFailed) {
+                        //
+                    }
+#else
                     self.cancelTunnelWithError(WireGuardProviderError.handshakeFailure)
+#endif
                 }
             case _ where exceptionMessage.contains(WireGuardExceptions.HandshakeCompleted.rawValue):
                 wg_log(.info, message: "(\(WireGuardExceptions.HandshakeCompleted.rawValue)")
