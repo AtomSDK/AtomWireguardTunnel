@@ -17,39 +17,32 @@ let package = Package(
             targets: ["AtomWireguardTunnel"]),
     ],
     dependencies: [
-        
-        // tvOS from Atom branch, needs testing on macOS and iOS.
-        .package(name: "WireGuardKit", url: "https://github.com/AtomSDK/wireguard-apple", branch: "feature/tvos-compatibility")
-        
-        // Working fine on tvOS, needs testing on macOS and iOS.
-        //.package(name: "WireGuardKit", url: "https://github.com/passepartoutvpn/wireguard-apple", revision: "b79f0f150356d8200a64922ecf041dd020140aa0")
-        
-        // Old without tvOS, working fine on macOS and iOS.
         //.package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
+        .package(url: "https://github.com/AtomSDK/wireguard-apple", branch: "master")
     ],
     targets: [
         .target(
             name: "AtomWireGuardAppExtension",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardCore",
                 "AtomWireGuardManager"
             ]),
         .target(
             name: "AtomWireGuardCore",
             dependencies: [
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireGuardManager",
             dependencies: [
                 "AtomWireGuardCore",
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireguardTunnel",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardAppExtension"
                 
             ]),
