@@ -9,4 +9,5 @@ public enum WireGuardProviderError: String, Error {
     case couldNotStartBackend
     case couldNotDetermineFileDescriptor
     case couldNotSetNetworkSettings
+    case handshakeFailure
 }
