@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.9
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -6,7 +6,9 @@ import PackageDescription
 let package = Package(
     name: "AtomWireguardTunnel",
     platforms: [
-        .iOS(.v12), .macOS(.v10_14)
+        .iOS(.v15),
+        .macOS(.v12),
+        .tvOS(.v17)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -15,31 +17,32 @@ let package = Package(
             targets: ["AtomWireguardTunnel"]),
     ],
     dependencies: [
-        .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
+        //.package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
+        .package(url: "https://github.com/AtomSDK/wireguard-apple", branch: "master")
     ],
     targets: [
         .target(
             name: "AtomWireGuardAppExtension",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardCore",
                 "AtomWireGuardManager"
             ]),
         .target(
             name: "AtomWireGuardCore",
             dependencies: [
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireGuardManager",
             dependencies: [
                 "AtomWireGuardCore",
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireguardTunnel",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardAppExtension"
                 
             ]),
