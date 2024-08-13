@@ -35,13 +35,7 @@ AtomWireguardTunnel can be integrated into your project using Swift Package Mana
 `WireGuardKit` links against the `wireguard-go-bridge` library, but it cannot build it automatically due to Swift Package Manager limitations. Follow these steps to create build targets for `wireguard-go-bridge`:
 
 1. In Xcode, click `File` -> `New` -> `Target`. Switch to the "Other" tab and choose "External Build System".
-2. Type `WireGuardGoBridge<PLATFORM>` under the "Product name", replacing `<PLATFORM>` with the appropriate platform name (`iOS`, `macOS`, or `tvOS`). Ensure the build tool is set to `/usr/bin/make`.
-3. In the newly created target's "Info" tab, set the "Directory" path under "External Build Tool Configuration":
-
-    ```sh
-    $BUILD_DIR/../../SourcePackages/checkouts/AtomWireguardTunnel/Sources/AtomWireguardTunnel/build_wireguard_go_bridge.sh
-    ```
-
+2. Type `WireGuardGoBridge<PLATFORM>` under the "Product name", replacing `<PLATFORM>` with the appropriate platform name (`iOS`, `macOS`, or `tvOS`). Ensure the Build Tool is set to `$BUILD_DIR/../../SourcePackages/checkouts/AtomWireguardTunnel/Sources/AtomWireguardTunnel/build_wireguard_go_bridge.sh`.
 4. In the "Build Settings" tab, set `SDKROOT` to `macosx` for macOS, `iphoneos` for iOS, or `appletvos` for tvOS.
 5. Go to your Xcode project settings, locate your network extension target, and switch to the "Build Phases" tab.
    - In the "Target Dependencies" section, add `WireGuardGoBridge<PLATFORM>`.
