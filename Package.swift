@@ -16,7 +16,7 @@ let package = Package(
     ],
     dependencies: [
         //.package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
-        .package(url: "https://github.com/AtomSDK/wireguard-apple", from: "1.0.18")
+        .package(url: "https://github.com/AtomSDK/wireguard-apple", from: "2.0.0")
     ],
     targets: [
         .target(
