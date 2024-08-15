@@ -15,31 +15,32 @@ let package = Package(
             targets: ["AtomWireguardTunnel"]),
     ],
     dependencies: [
-        .package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
+        //.package(name: "WireGuardKit", url: "https://github.com/wireguard/wireguard-apple", branch: "am/develop")
+        .package(url: "https://github.com/AtomSDK/wireguard-apple", from: "1.0.18")
     ],
     targets: [
         .target(
             name: "AtomWireGuardAppExtension",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardCore",
                 "AtomWireGuardManager"
             ]),
         .target(
             name: "AtomWireGuardCore",
             dependencies: [
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireGuardManager",
             dependencies: [
                 "AtomWireGuardCore",
-                "WireGuardKit"
+                .product(name: "WireGuardKit", package: "wireguard-apple")
             ]),
         .target(
             name: "AtomWireguardTunnel",
             dependencies: [
-                "WireGuardKit",
+                .product(name: "WireGuardKit", package: "wireguard-apple"),
                 "AtomWireGuardAppExtension"
                 
             ]),
