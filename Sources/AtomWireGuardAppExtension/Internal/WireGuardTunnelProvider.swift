@@ -183,7 +183,7 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     open override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
         guard let completionHandler = completionHandler else { return }
         
-        guard let action = String(data: messageData, encoding: .utf8) else {
+        /*guard let action = String(data: messageData, encoding: .utf8) else {
             completionHandler(nil)
             return
         }
@@ -197,7 +197,53 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             break
         }
         
-        completionHandler(messageData)
+        completionHandler(messageData)*/
+        
+        do {
+            if let json = try JSONSerialization.jsonObject(with: messageData, options: []) as? [String : Any] {
+                let key1 = json["action"]
+                let key2 = json["time"]
+                
+                guard let action = key1 as? String else {
+                    completionHandler("error|No Action Received".data(using: String.Encoding.utf8))
+                    return
+                }
+                
+                if action.elementsEqual("PAUSE") {
+                    if let time = key2 as? Double, time != 0.0 {
+                        //pauseVPN(for: time)
+                        //pauseVPN(time)
+                        pauseVPN(time) { response in
+                            if let response = response, let responseError = response["error"] {
+                                completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
+                            } else {
+                                completionHandler("success|paused".data(using: String.Encoding.utf8))
+                            }
+                        }
+                    } else {
+                        // Don't auto resume, this will be developed later on when manual Pause will be available from AtomSDK.
+                        //pauseVPN(for: nil)
+                    }
+                } else if action.elementsEqual("RESUME") {
+                    //resumeVPN()
+                    resumeVPN { response in
+                        if let response = response, let responseError = response["error"] {
+                            completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
+                        } else {
+                            completionHandler("success|resumed".data(using: String.Encoding.utf8))
+                        }
+                    }
+                } else if action.elementsEqual("VPNSTATUS") {
+                    //completionHandler?("\(vpnStatusString)".data(using: String.Encoding.utf8))
+                } else {
+                    completionHandler("error|Invalid Action".data(using: String.Encoding.utf8))
+                }
+            } else {
+                completionHandler("error|Invalid JSON Format".data(using: String.Encoding.utf8))
+            }
+        } catch {
+            completionHandler("error|Catch JSON Error: \(error.localizedDescription)".data(using: String.Encoding.utf8))
+        }
     }
     
     private func startTunnel(onDemand: Bool) async throws {
@@ -253,17 +299,17 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     
     // MARK: - Snooze
     
-    private func pauseVPN(_ duration: TimeInterval, completionHandler: ((Data?) -> Void)? = nil) {
+    private func pauseVPN(_ duration: TimeInterval, completionHandler: (([String : Any]?) -> Void)? = nil) {
         Task {
-            await startPauseVPN(duration: duration)
-            completionHandler?(nil)
+            let data = await startPauseVPN(duration: duration)
+            completionHandler?(data)
         }
     }
     
-    private func resumeVPN(completionHandler: ((Data?) -> Void)? = nil) {
+    private func resumeVPN(completionHandler: (([String : Any]?) -> Void)? = nil) {
         Task {
-            await cancelPauseVPN()
-            completionHandler?(nil)
+            let data = await cancelPauseVPN()
+            completionHandler?(data)
         }
     }
     
@@ -271,40 +317,57 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     private var pauseRequestProcessing: Bool = false
     
     @MainActor
-    private func startPauseVPN(duration: TimeInterval) async {
+    private func startPauseVPN(duration: TimeInterval) async -> [String : Any] {
+        var dictToSend = [String : Any]()
         if pauseRequestProcessing {
             wg_log(.error, message: "Rejecting start pause request due to existing request processing")
-
-            return
+            let errorToSend = "PauseVPN error: Rejecting start pause request due to existing request processing"
+            dictToSend["error"] = errorToSend
+            //AtomWireguardTunnelDarwinNotificationManager.shared.postNotification(name: "RESUMED", userInfo: dictToSend)
+            return dictToSend
         }
         
         pauseRequestProcessing = true
         wg_log(.error, message: "Starting pause mode with duration: \(duration)")
         await stopMonitors()
         
-        self.adapter.snooze { [weak self] error in
-            guard let self else {
-                assertionFailure("Failed to get strong self")
-                return
-            }
-            
-            if error == nil {
-                // Schedule resumption after the specified duration
-                snoozeTimerTask = Task {
-                    await self.resumeAfterSnooze(duration: duration)
+        // Use explicit type for withCheckedContinuation
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            self.adapter.snooze { [weak self] error in
+                guard let self else {
+                    let errorToSend = "PauseVPN error: Failed to get strong self"
+                    dictToSend["error"] = errorToSend
+                    //AtomWireguardTunnelDarwinNotificationManager.shared.postNotification(name: "RESUMED", userInfo: dictToSend)
+                    assertionFailure("Failed to get strong self")
+                    continuation.resume()
+                    return
                 }
+                
+                if let error = error {
+                    let errorToSend = "PauseVPN error: \(error.localizedDescription)"
+                    dictToSend["error"] = errorToSend
+                } else {
+                    // Schedule resumption after the specified duration
+                    snoozeTimerTask = Task {
+                        await self.resumeAfterSnooze(duration: duration)
+                    }
+                }
+                
+                self.pauseRequestProcessing = false
+                continuation.resume()
             }
-            
-            self.pauseRequestProcessing = false
         }
-        
-
+        return dictToSend
     }
     
-    private func cancelPauseVPN() async {
+    private func cancelPauseVPN() async -> [String : Any] {
+        var dictToSend = [String : Any]()
         guard !pauseRequestProcessing else {
             wg_log(.error, message: "Rejecting cancel pause request due to existing request processing")
-            return
+            let errorToSend = "ResumeVPN error: Rejecting cancel pause request due to existing request processing"
+            dictToSend["error"] = errorToSend
+            //completionHandler?(dictToSend)
+            return dictToSend
         }
 
         pauseRequestProcessing = true
@@ -322,12 +385,20 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
         // Attempt to restart the tunnel
         do {
             try await startTunnel(onDemand: false)
+            dictToSend["error"] = nil
+            //completionHandler?(dictToSend)
+            return dictToSend
         } catch {
             wg_log(.error, message: "Failed to restart tunnel: \(error.localizedDescription)")
+            let errorToSend = "ResumeVPN error: \(error.localizedDescription)"
+            dictToSend["error"] = errorToSend
+            //completionHandler?(dictToSend)
+            return dictToSend
         }
     }
     
     private func resumeAfterSnooze(duration: TimeInterval) async {
+        var dictToSend = [String : Any]()
         do {
             wg_log(.info, message: "Scheduling VPN resumption in \(duration) seconds")
 
@@ -337,14 +408,30 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             // Check if the task has been canceled
             guard !Task.isCancelled else {
                 wg_log(.info, message: "pause task was canceled before resumption")
+                let errorToSend = "ResumeVPN error: Pause task was canceled before resumption"
+                dictToSend["error"] = errorToSend
+                AtomWireguardTunnelDarwinNotificationManager.shared.postNotification(name: "RESUMED", userInfo: dictToSend)
                 return
             }
 
             // Resume the VPN connection
             try await startTunnel(onDemand: false)
             wg_log(.info, message: "VPN resumed successfully after pause duration")
+            dictToSend["error"] = nil
+            AtomWireguardTunnelDarwinNotificationManager.shared.postNotification(name: "RESUMED", userInfo: dictToSend)
         } catch {
             wg_log(.error, message: "Cancelled auto resume VPN after pause: \(error.localizedDescription)")
+            if let completeError = error as? NSError {
+                if !(completeError.code == 1) {
+                    /**
+                     * This case has been added in order to acheive the following:
+                     * When resume was performed manually the notification was getting fired from this catch block due to Task Cancellation.
+                     */
+                    let errorToSend = "ResumeVPN error: \(error.localizedDescription)"
+                    dictToSend["error"] = errorToSend
+                    AtomWireguardTunnelDarwinNotificationManager.shared.postNotification(name: "RESUMED", userInfo: dictToSend)
+                }
+            }
         }
     }
 }
