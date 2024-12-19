@@ -14,6 +14,12 @@ enum WireGuardExceptions: String {
 
 }
 
+enum ConnectionState: String {
+    case disconnected = "Disconnected"
+    case connected = "Connected"
+    case pause = "Pause"
+    case connecting = "Connecting"
+}
 public var handshakeExceptionCount = 0
 
 open class WireGuardTunnelProvider: NEPacketTunnelProvider {
@@ -29,6 +35,7 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     private var startTunnelCompletionHandler: (() -> Void)?
     private var originalConfiguration: String?
     private var snoozeTimerTask: Task<Void, Never>?
+    var currentState: ConnectionState = .disconnected
 
     private lazy var adapter: WireGuardAdapter = {
         return WireGuardAdapter(with: self) { logLevel, message in
@@ -81,7 +88,8 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
             
                 self.startTunnelCompletionHandler =
                 { [weak self] in
-                    
+                    wg_log(.info, message: "FAIZAN::::::::: Tunnel interface is \(interfaceName)")
+                    self?.currentState = .connected
                     completionHandler(nil)
                 }
                 return
@@ -234,7 +242,9 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                         }
                     }
                 } else if action.elementsEqual("VPNSTATUS") {
-                    //completionHandler?("\(vpnStatusString)".data(using: String.Encoding.utf8))
+                    wg_log(.info, message: "FAIZAN ::: Wireguard (\(currentState.rawValue)")
+
+                    completionHandler("\(currentState.rawValue)".data(using: String.Encoding.utf8))
                 } else {
                     completionHandler("error|Invalid Action".data(using: String.Encoding.utf8))
                 }
@@ -283,7 +293,6 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
 
                 // Resume the continuation indicating success
                 continuation.resume(returning: ())
-
                 // Proceed with additional tasks on the main actor if needed
                 Task { @MainActor in
                     // Additional main actor tasks
@@ -352,7 +361,8 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                         await self.resumeAfterSnooze(duration: duration)
                     }
                 }
-                
+                currentState = .pause
+                wg_log(.info, message: "Tunnel startPauseVPN \(currentState.rawValue)")
                 self.pauseRequestProcessing = false
                 continuation.resume()
             }
