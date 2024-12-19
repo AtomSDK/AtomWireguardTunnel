@@ -17,7 +17,7 @@ enum WireGuardExceptions: String {
 enum ConnectionState: String {
     case disconnected = "Disconnected"
     case connected = "Connected"
-    case pause = "Pause"
+    case paused = "Paused"
     case connecting = "Connecting"
 }
 public var handshakeExceptionCount = 0
@@ -191,22 +191,6 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     open override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
         guard let completionHandler = completionHandler else { return }
         
-        /*guard let action = String(data: messageData, encoding: .utf8) else {
-            completionHandler(nil)
-            return
-        }
-        
-        switch action {
-        case "pause":
-            pauseVPN(20)
-        case "resume":
-            resumeVPN()
-        default:
-            break
-        }
-        
-        completionHandler(messageData)*/
-        
         do {
             if let json = try JSONSerialization.jsonObject(with: messageData, options: []) as? [String : Any] {
                 let key1 = json["action"]
@@ -219,8 +203,6 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                 
                 if action.elementsEqual("PAUSE") {
                     if let time = key2 as? Double, time != 0.0 {
-                        //pauseVPN(for: time)
-                        //pauseVPN(time)
                         pauseVPN(time) { response in
                             if let response = response, let responseError = response["error"] {
                                 completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
@@ -233,7 +215,6 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                         //pauseVPN(for: nil)
                     }
                 } else if action.elementsEqual("RESUME") {
-                    //resumeVPN()
                     resumeVPN { response in
                         if let response = response, let responseError = response["error"] {
                             completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
@@ -244,7 +225,7 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                 } else if action.elementsEqual("VPNSTATUS") {
                     wg_log(.info, message: "FAIZAN ::: Wireguard (\(currentState.rawValue)")
 
-                    completionHandler("\(currentState.rawValue)".data(using: String.Encoding.utf8))
+                    completionHandler("success|\(currentState.rawValue.lowercased())".data(using: String.Encoding.utf8))
                 } else {
                     completionHandler("error|Invalid Action".data(using: String.Encoding.utf8))
                 }
@@ -361,7 +342,7 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                         await self.resumeAfterSnooze(duration: duration)
                     }
                 }
-                currentState = .pause
+                currentState = .paused
                 wg_log(.info, message: "Tunnel startPauseVPN \(currentState.rawValue)")
                 self.pauseRequestProcessing = false
                 continuation.resume()
