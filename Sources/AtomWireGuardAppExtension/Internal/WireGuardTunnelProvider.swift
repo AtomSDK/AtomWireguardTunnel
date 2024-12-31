@@ -85,10 +85,9 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                 let interfaceName = self.adapter.interfaceName ?? "unknown"
                 
                 wg_log(.info, message: "Tunnel interface is \(interfaceName)")
-            
+                
                 self.startTunnelCompletionHandler =
                 { [weak self] in
-                    wg_log(.info, message: "FAIZAN::::::::: Tunnel interface is \(interfaceName)")
                     self?.currentState = .connected
                     completionHandler(nil)
                 }
@@ -223,8 +222,6 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
                         }
                     }
                 } else if action.elementsEqual("VPNSTATUS") {
-                    wg_log(.info, message: "FAIZAN ::: Wireguard (\(currentState.rawValue)")
-
                     completionHandler("success|\(currentState.rawValue.lowercased())".data(using: String.Encoding.utf8))
                 } else {
                     completionHandler("error|Invalid Action".data(using: String.Encoding.utf8))
