@@ -188,49 +188,62 @@ open class WireGuardTunnelProvider: NEPacketTunnelProvider {
     }
     
     open override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
+        // Validate the completion handler
         guard let completionHandler = completionHandler else { return }
         
+        enum ResponseStatus: String {
+            case success = "success"
+            case error = "error"
+        }
+        
+        // Helper to send responses
+        func sendResponse(status: ResponseStatus, message: String) {
+            let response = "\(status)|\(message)".data(using: .utf8)
+            completionHandler(response)
+        }
+        
         do {
-            if let json = try JSONSerialization.jsonObject(with: messageData, options: []) as? [String : Any] {
-                let key1 = json["action"]
-                let key2 = json["time"]
-                
-                guard let action = key1 as? String else {
-                    completionHandler("error|No Action Received".data(using: String.Encoding.utf8))
-                    return
-                }
-                
-                if action.elementsEqual("PAUSE") {
-                    if let time = key2 as? Double, time != 0.0 {
-                        pauseVPN(time) { response in
-                            if let response = response, let responseError = response["error"] {
-                                completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
-                            } else {
-                                completionHandler("success|paused".data(using: String.Encoding.utf8))
-                            }
-                        }
-                    } else {
-                        // Don't auto resume, this will be developed later on when manual Pause will be available from AtomSDK.
-                        //pauseVPN(for: nil)
-                    }
-                } else if action.elementsEqual("RESUME") {
-                    resumeVPN { response in
-                        if let response = response, let responseError = response["error"] {
-                            completionHandler("error|\(responseError)".data(using: String.Encoding.utf8))
-                        } else {
-                            completionHandler("success|resumed".data(using: String.Encoding.utf8))
-                        }
-                    }
-                } else if action.elementsEqual("VPNSTATUS") {
-                    completionHandler("success|\(currentState.rawValue.lowercased())".data(using: String.Encoding.utf8))
-                } else {
-                    completionHandler("error|Invalid Action".data(using: String.Encoding.utf8))
-                }
-            } else {
-                completionHandler("error|Invalid JSON Format".data(using: String.Encoding.utf8))
+            // Parse the JSON
+            guard let json = try JSONSerialization.jsonObject(with: messageData, options: []) as? [String: Any],
+                  let action = json["action"] as? String else {
+                sendResponse(status: .error, message: "Invalid JSON or missing 'action'")
+                return
             }
+            
+            // Handle actions
+            switch action.uppercased() {
+            case "PAUSE":
+                if let time = json["time"] as? Double, time > 0 {
+                    pauseVPN(time) { response in
+                        if let error = response?["error"] as? String {
+                            sendResponse(status: .error, message: error)
+                        } else {
+                            sendResponse(status: .success, message: "paused")
+                        }
+                    }
+                } else {
+                    sendResponse(status: .error, message: "Invalid or missing 'time'")
+                }
+                
+            case "RESUME":
+                resumeVPN { response in
+                    if let error = response?["error"] as? String {
+                        sendResponse(status: .error, message: error)
+                    } else {
+                        sendResponse(status: .success, message: "resumed")
+                    }
+                }
+                
+            case "VPNSTATUS":
+                sendResponse(status: .success, message: currentState.rawValue.lowercased())
+                
+            default:
+                sendResponse(status: .error, message: "Invalid Action")
+            }
+            
         } catch {
-            completionHandler("error|Catch JSON Error: \(error.localizedDescription)".data(using: String.Encoding.utf8))
+            // Handle JSON errors
+            sendResponse(status: .error, message: "JSON Error: \(error.localizedDescription)")
         }
     }
     
